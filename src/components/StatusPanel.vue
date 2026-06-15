@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { Companion, ActionEffect } from '@/types/game'
 
 interface StatItem {
   label: string
@@ -17,6 +18,8 @@ interface Props {
   thirst: number
   wood: number
   stone: number
+  companions: Companion[]
+  totalBonuses: ActionEffect
 }
 
 const props = defineProps<Props>()
@@ -66,6 +69,21 @@ const stats = computed<StatItem[]>(() => [
   },
 ])
 
+const hasCompanions = computed(() => props.companions.length > 0)
+
+function getBonusTag(bonus: ActionEffect): string {
+  const parts: string[] = []
+  if (bonus.health && bonus.health > 0) parts.push(`❤️+${bonus.health}`)
+  if (bonus.health && bonus.health < 0) parts.push(`❤️${bonus.health}`)
+  if (bonus.hunger && bonus.hunger < 0) parts.push(`🍖${bonus.hunger}`)
+  if (bonus.hunger && bonus.hunger > 0) parts.push(`🍖+${bonus.hunger}`)
+  if (bonus.thirst && bonus.thirst < 0) parts.push(`💧${bonus.thirst}`)
+  if (bonus.thirst && bonus.thirst > 0) parts.push(`💧+${bonus.thirst}`)
+  if (bonus.wood && bonus.wood > 0) parts.push(`🪵+${bonus.wood}`)
+  if (bonus.stone && bonus.stone > 0) parts.push(`🪨+${bonus.stone}`)
+  return parts.join(' ')
+}
+
 function getBarWidth(value: number, max: number): string {
   const percent = Math.max(0, Math.min(100, (value / max) * 100))
   return `${percent}%`
@@ -114,6 +132,45 @@ function isDanger(value: number, max: number, isReverse?: boolean): boolean {
           ></div>
         </div>
       </div>
+    </div>
+
+    <div v-if="hasCompanions" class="mt-5 pt-5 border-t border-gray-700">
+      <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2">
+        <span>🤝</span>
+        <span>救援伙伴</span>
+        <span class="text-xs bg-purple-600/50 text-purple-200 px-2 py-0.5 rounded-full">{{ companions.length }}</span>
+      </h3>
+      <div class="space-y-2.5">
+        <div
+          v-for="companion in companions"
+          :key="companion.id"
+          class="bg-gray-800/60 rounded-xl p-3 border border-gray-700/50"
+        >
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-xl">{{ companion.icon }}</span>
+            <span class="text-white font-semibold text-sm">{{ companion.name }}</span>
+          </div>
+          <p class="text-gray-400 text-xs mb-1.5">{{ companion.description }}</p>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs bg-green-900/40 text-green-300 px-2 py-0.5 rounded-full border border-green-800/50">
+              {{ companion.bonusDescription }}
+            </span>
+          </div>
+          <p class="text-gray-500 text-xs mt-1.5">第 {{ companion.metTurn }} 回合结识</p>
+        </div>
+      </div>
+
+      <div v-if="Object.keys(totalBonuses).length > 0" class="mt-3 bg-emerald-900/20 rounded-lg p-2.5 border border-emerald-800/30">
+        <p class="text-emerald-300 text-xs font-medium">每回合总加成：{{ getBonusTag(totalBonuses) }}</p>
+      </div>
+    </div>
+
+    <div v-else class="mt-5 pt-5 border-t border-gray-700">
+      <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2">
+        <span>🤝</span>
+        <span>救援伙伴</span>
+      </h3>
+      <p class="text-gray-500 text-sm text-center py-3">探索荒野，也许会遇到愿意同行的伙伴...</p>
     </div>
   </div>
 </template>

@@ -1,5 +1,5 @@
-import { ref, computed, watch } from 'vue'
-import type { GameState, LogEntry, RandomEvent, ActionType, ActionEffect } from '@/types/game'
+import { ref, computed } from 'vue'
+import type { GameState, LogEntry, RandomEvent, ActionType, ActionEffect, Companion } from '@/types/game'
 import { randomEvents } from '@/data/events'
 
 const STORAGE_KEY_HIGH_SCORE = 'survival_game_high_score'
@@ -23,8 +23,8 @@ const actionNames: Record<ActionType, string> = {
   drink: '喝水',
 }
 
-export function useGame() {
-  const state = ref<GameState>({
+function createInitialState(): GameState {
+  return {
     health: 80,
     hunger: 30,
     thirst: 30,
@@ -33,12 +33,35 @@ export function useGame() {
     turn: 0,
     isGameOver: false,
     logs: [],
-  })
+    companions: [],
+  }
+}
+
+export function useGame() {
+  const state = ref<GameState>(createInitialState())
 
   const highScore = ref<number>(0)
   let logIdCounter = 0
 
   const canAct = computed(() => !state.value.isGameOver)
+
+  const companionSummary = computed(() => {
+    const companions = state.value.companions
+    if (companions.length === 0) return ''
+    return companions.map(c => `${c.icon}${c.name}`).join('、')
+  })
+
+  const totalCompanionBonuses = computed<ActionEffect>(() => {
+    const result: ActionEffect = {}
+    for (const c of state.value.companions) {
+      if (c.bonus.health) result.health = (result.health ?? 0) + c.bonus.health
+      if (c.bonus.hunger) result.hunger = (result.hunger ?? 0) + c.bonus.hunger
+      if (c.bonus.thirst) result.thirst = (result.thirst ?? 0) + c.bonus.thirst
+      if (c.bonus.wood) result.wood = (result.wood ?? 0) + c.bonus.wood
+      if (c.bonus.stone) result.stone = (result.stone ?? 0) + c.bonus.stone
+    }
+    return result
+  })
 
   function loadHighScore() {
     try {
@@ -96,6 +119,27 @@ export function useGame() {
     }
   }
 
+  function applyCompanionBonuses() {
+    if (state.value.companions.length === 0) return
+    applyEffects(totalCompanionBonuses.value)
+    const bonusTexts = state.value.companions
+      .map(c => `${c.icon}${c.name}的加成已生效`)
+      .join('，')
+    addLog(bonusTexts, 'companion')
+  }
+
+  function meetCompanion(companionData: Omit<Companion, 'metTurn'>) {
+    const alreadyMet = state.value.companions.some(c => c.id === companionData.id)
+    if (alreadyMet) return
+
+    const companion: Companion = {
+      ...companionData,
+      metTurn: state.value.turn,
+    }
+    state.value.companions.push(companion)
+    addLog(`🎉 你结识了新伙伴 ${companion.icon} ${companion.name}！${companion.bonusDescription}`, 'companion')
+  }
+
   function getRandomEvent(): RandomEvent {
     const index = Math.floor(Math.random() * randomEvents.length)
     return randomEvents[index]
@@ -105,7 +149,13 @@ export function useGame() {
     if (state.value.health <= 0 || state.value.hunger >= MAX_STAT || state.value.thirst >= MAX_STAT) {
       state.value.isGameOver = true
       saveHighScore()
-      addLog('你没能在荒野中生存下来...', 'system')
+
+      let reason = '你没能在荒野中生存下来...'
+      if (state.value.companions.length > 0) {
+        const names = state.value.companions.map(c => `${c.icon}${c.name}`).join('和')
+        reason = `你和${names}一起坚持到了最后，但还是没能逃出荒野...`
+      }
+      addLog(reason, 'system')
     }
   }
 
@@ -130,11 +180,17 @@ export function useGame() {
 
     addLog(`第 ${state.value.turn} 回合：${actionNames[action]}`, 'action')
 
+    applyCompanionBonuses()
+
     const event = getRandomEvent()
     applyEffects(event.effects)
 
-    const eventLogType = event.type === 'good' ? 'good' : event.type === 'bad' ? 'bad' : 'event'
-    addLog(event.text, eventLogType)
+    if (event.companion) {
+      meetCompanion(event.companion)
+    } else {
+      const eventLogType = event.type === 'good' ? 'good' : event.type === 'bad' ? 'bad' : 'event'
+      addLog(event.text, eventLogType)
+    }
 
     checkGameOver()
   }
@@ -156,16 +212,7 @@ export function useGame() {
   }
 
   function restart() {
-    state.value = {
-      health: 80,
-      hunger: 30,
-      thirst: 30,
-      wood: 10,
-      stone: 5,
-      turn: 0,
-      isGameOver: false,
-      logs: [],
-    }
+    state.value = createInitialState()
     logIdCounter = 0
     addLog('你醒来发现自己身处荒野中，需要想办法生存下去...', 'system')
   }
@@ -178,6 +225,8 @@ export function useGame() {
     highScore,
     canAct,
     canPerformAction,
+    companionSummary,
+    totalCompanionBonuses,
     gatherWood,
     gatherStone,
     hunt,

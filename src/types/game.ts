@@ -1,3 +1,13 @@
+export interface Companion {
+  id: string
+  name: string
+  icon: string
+  description: string
+  bonus: ActionEffect
+  bonusDescription: string
+  metTurn: number
+}
+
 export interface GameState {
   health: number
   hunger: number
@@ -7,12 +17,13 @@ export interface GameState {
   turn: number
   isGameOver: boolean
   logs: LogEntry[]
+  companions: Companion[]
 }
 
 export interface LogEntry {
   id: number
   text: string
-  type: 'action' | 'event' | 'system' | 'good' | 'bad'
+  type: 'action' | 'event' | 'system' | 'good' | 'bad' | 'companion'
   turn: number
 }
 
@@ -27,6 +38,7 @@ export interface RandomEvent {
     wood?: number
     stone?: number
   }
+  companion?: Omit<Companion, 'metTurn'>
 }
 
 export type ActionType = 'gatherWood' | 'gatherStone' | 'hunt' | 'drink'

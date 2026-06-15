@@ -1,16 +1,29 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import type { Companion } from '@/types/game'
+
 interface Props {
   show: boolean
   finalTurn: number
   highScore: number
   isNewRecord: boolean
+  companions: Companion[]
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   restart: []
 }>()
+
+const hasCompanions = computed(() => props.companions.length > 0)
+
+const companionJourney = computed(() => {
+  return props.companions.map(c => ({
+    ...c,
+    turnsTogether: props.finalTurn - c.metTurn,
+  }))
+})
 </script>
 
 <template>
@@ -21,7 +34,7 @@ const emit = defineEmits<{
         class="fixed inset-0 z-50 flex items-center justify-center p-4"
       >
         <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
-        <div class="relative bg-game-card rounded-3xl p-8 max-w-md w-full border border-game-border shadow-2xl animate-slide-up">
+        <div class="relative bg-game-card rounded-3xl p-8 max-w-md w-full border border-game-border shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto">
           <div class="text-center">
             <div class="text-6xl mb-4">💀</div>
             <h2 class="text-3xl font-bold text-white mb-2">游戏结束</h2>
@@ -40,6 +53,39 @@ const emit = defineEmits<{
                   <span v-if="isNewRecord" class="text-sm ml-1">🏆 新纪录！</span>
                 </span>
               </div>
+            </div>
+
+            <div v-if="hasCompanions" class="bg-purple-900/20 rounded-2xl p-5 mb-6 border border-purple-800/30 text-left">
+              <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2 justify-center">
+                <span>🤝</span>
+                <span>同行的伙伴</span>
+              </h3>
+              <div class="space-y-3">
+                <div
+                  v-for="companion in companionJourney"
+                  :key="companion.id"
+                  class="bg-gray-800/60 rounded-xl p-3 border border-gray-700/50"
+                >
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xl">{{ companion.icon }}</span>
+                      <span class="text-white font-semibold text-sm">{{ companion.name }}</span>
+                    </div>
+                    <span class="text-purple-300 text-xs">{{ companion.turnsTogether }} 回合陪伴</span>
+                  </div>
+                  <p class="text-gray-400 text-xs mb-1">{{ companion.description }}</p>
+                  <p class="text-green-400 text-xs">✨ {{ companion.bonusDescription }}</p>
+                </div>
+              </div>
+              <div class="mt-3 text-center">
+                <p class="text-purple-300 text-sm italic">
+                  在荒野中，有伙伴同行是一种幸运...
+                </p>
+              </div>
+            </div>
+
+            <div v-else class="bg-gray-800/30 rounded-2xl p-5 mb-6 border border-gray-700/30">
+              <p class="text-gray-500 text-sm">这一路，你独自走过了荒野...</p>
             </div>
 
             <button
